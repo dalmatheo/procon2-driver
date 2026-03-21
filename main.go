@@ -241,9 +241,14 @@ func (m *Manager) driverLoop(ad *ActiveDriver) {
 
 func (m *Manager) Cleanup() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	drivers := make([]*ActiveDriver, 0, len(m.drivers))
 	for _, ad := range m.drivers {
+		drivers = append(drivers, ad)
 		close(ad.StopChan)
+	}
+	m.mu.Unlock()
+
+	for _, ad := range drivers {
 		ad.WG.Wait()
 	}
 }
