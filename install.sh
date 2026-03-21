@@ -7,18 +7,15 @@ SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 INSTALL_PATH="/usr/local/bin/${EXECUTABLE_NAME}"
 PROJECT_ROOT=$(pwd)
 
-# --- 1. Compile the Project ---
-echo "⚙️  1. Compiling Go project..."
-go build -o "${EXECUTABLE_NAME}"
-if [ $? -ne 0 ]; then
-    echo "❌ Compilation failed. Aborting."
-    exit 1
-fi
-echo "✅ Compilation successful. Binary: ${EXECUTABLE_NAME}"
+# --- 1. Download the Project ---
+echo "⚙️  1. Downloading the project..."
+mkdir "/tmp/${EXECUTABLE_NAME}"
+curl -L -o "/tmp/${EXECUTABLE_NAME}/${EXECUTABLE_NAME}" https://github.com/dalmatheo/procon2-driver/releases/latest/download/procon2-driver
+chmod +x "/tmp/${EXECUTABLE_NAME}/${EXECUTABLE_NAME}"
 
 # --- 2. Move the Executable ---
 echo "📦 2. Moving executable to ${INSTALL_PATH}..."
-sudo mv "${EXECUTABLE_NAME}" "${INSTALL_PATH}"
+sudo mv "/tmp/${EXECUTABLE_NAME}/${EXECUTABLE_NAME}" "${INSTALL_PATH}"
 if [ $? -ne 0 ]; then
     echo "❌ Failed to move executable. Aborting."
     exit 1
@@ -72,4 +69,4 @@ sudo systemctl start "${SERVICE_NAME}.service"
 echo "--------------------------------------------------------"
 sudo systemctl status "${SERVICE_NAME}.service" --no-pager
 echo "--------------------------------------------------------"
-echo "🎉 Deployment complete. Check live logs with: journalctl -u ${SERVICE_NAME}.service -f"
+echo "🎉 Installation complete. Check live logs with: journalctl -u ${SERVICE_NAME}.service -f"
