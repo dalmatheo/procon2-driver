@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # --- Configuration ---
-SERVICE_NAME="procon2-driver"
 EXECUTABLE_NAME="procon2-driver"
-SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
-INSTALL_PATH="/usr/local/bin/${EXECUTABLE_NAME}"
+SERVICE_FILE="procon2-driver.service"
+SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_FILE}"
+INSTALL_PATH="/usr/bin/${EXECUTABLE_NAME}"
 PROJECT_ROOT=$(pwd)
 
 # --- 1. Download the Project ---
@@ -22,36 +22,14 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ Executable moved and ready."
 
-# --- 3. Create the systemd Service File (FIXED) ---
-echo "📝 3. Creating systemd service file at ${SERVICE_FILE_PATH}..."
-
-# We pipe the output of cat to 'sudo tee' which handles the permission.
-cat << EOF | sudo tee "${SERVICE_FILE_PATH}" > /dev/null
-[Unit]
-Description=Nintendo Pro Controller 2 Driver
-After=network.target
-
-[Service]
-# Execute the installed binary with the --daemon flag
-ExecStart=${INSTALL_PATH} --daemon
-# Restart automatically if it crashes
-Restart=always
-RestartSec=5
-# Run as root to access /dev/hidraw* and /dev/uinput
-User=root
-Group=root
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
+# --- 3. Move the systemd Service File ---
+echo "📝 3. Moving systemd service file to ${SERVICE_FILE_PATH}..."
+sudo mv "${SERVICE_FILE}" "${SERVICE_FILE_PATH}"
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to create service file. Aborting."
+    echo "❌ Failed to move service file. Aborting."
     exit 1
 fi
-echo "✅ Service file created."
+echo "✅ Service file moved and ready."
 
 # --- 4. Enable and Start the Service ---
 echo "🚀 4. Reloading systemd, enabling, and starting service..."
@@ -60,13 +38,13 @@ echo "🚀 4. Reloading systemd, enabling, and starting service..."
 sudo systemctl daemon-reload
 
 # Enable the service to start on boot
-sudo systemctl enable "${SERVICE_NAME}.service"
+sudo systemctl enable "${SERVICE_FILE}"
 
 # Start the service immediately
-sudo systemctl start "${SERVICE_NAME}.service"
+sudo systemctl start "${SERVICE_FILE}"
 
 # Check the status
 echo "--------------------------------------------------------"
-sudo systemctl status "${SERVICE_NAME}.service" --no-pager
+sudo systemctl status "${SERVICE_FILE}" --no-pager
 echo "--------------------------------------------------------"
-echo "🎉 Installation complete. Check live logs with: journalctl -u ${SERVICE_NAME}.service -f"
+echo "🎉 Deployment complete. Check live logs with: journalctl -u ${SERVICE_FILE} -f"
