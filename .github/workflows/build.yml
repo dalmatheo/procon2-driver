@@ -1,0 +1,39 @@
+name: Build with Go
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setting up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+
+      - name: Verify Dependencies
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Vulnerability Check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Building the driver
+        run: go build -v -o procon2-driver
+
+      - name: Upload the build driver
+        uses: actions/upload-artifact@v6
+        with:
+          name: procon2-driver
+          path: procon2-driver
+          if-no-files-found: error
