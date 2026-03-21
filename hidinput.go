@@ -61,6 +61,9 @@ type HIDReader struct {
 	file        *os.File
 	calibration JoystickCalibration
 	buffer      [64]byte
+	stateChan   chan ControllerState
+	errChan     chan error
+	stopChan    chan struct{}
 }
 
 // NewHIDReader opens a HID device for reading
@@ -73,6 +76,9 @@ func NewHIDReader(hidPath string, cal JoystickCalibration) (*HIDReader, error) {
 	reader := &HIDReader{
 		file:        f,
 		calibration: cal,
+		stateChan:   make(chan ControllerState, 1),
+		errChan:     make(chan error, 1),
+		stopChan:    make(chan struct{}),
 	}
 
 	// Send initialization commands
@@ -81,47 +87,63 @@ func NewHIDReader(hidPath string, cal JoystickCalibration) (*HIDReader, error) {
 		return nil, fmt.Errorf("init commands failed: %w", err)
 	}
 
+	go reader.runReadLoop()
+
 	return reader, nil
+}
+
+// runReadLoop is the ONLY goroutine that reads from the file
+func (r *HIDReader) runReadLoop() {
+	for {
+		select {
+		case <-r.stopChan:
+			return
+		default:
+			n, err := r.file.Read(r.buffer[:])
+			if err != nil {
+				r.errChan <- err
+				return
+			}
+			if n >= 6 {
+				state := r.parseReport(r.buffer[:n])
+				// Non-blocking send: always keep the stateChan updated with the LATEST report
+				select {
+				case r.stateChan <- state:
+				default:
+					<-r.stateChan // Drain old state
+					r.stateChan <- state
+				}
+			}
+		}
+	}
 }
 
 // Close closes the HID device
 func (r *HIDReader) Close() error {
+	close(r.stopChan)
 	if r.file != nil {
 		return r.file.Close()
 	}
 	return nil
 }
 
-// ReadState reads the current controller state (blocking)
+// ReadState now just looks at the channel (no goroutine spawning!)
 func (r *HIDReader) ReadState() (ControllerState, error) {
-	n, err := r.file.Read(r.buffer[:])
-	if err != nil {
+	select {
+	case err := <-r.errChan:
 		return ControllerState{}, err
+	case state := <-r.stateChan:
+		return state, nil
 	}
-
-	if n < 6 {
-		return ControllerState{}, errors.New("report too short")
-	}
-
-	return r.parseReport(r.buffer[:n]), nil
 }
 
-// ReadStateTimeout reads controller state with a timeout
+// ReadStateTimeout is now extremely cheap to call
 func (r *HIDReader) ReadStateTimeout(timeout time.Duration) (ControllerState, error) {
-	type result struct {
-		state ControllerState
-		err   error
-	}
-
-	ch := make(chan result, 1)
-	go func() {
-		state, err := r.ReadState()
-		ch <- result{state, err}
-	}()
-
 	select {
-	case res := <-ch:
-		return res.state, res.err
+	case err := <-r.errChan:
+		return ControllerState{}, err
+	case state := <-r.stateChan:
+		return state, nil
 	case <-time.After(timeout):
 		return ControllerState{}, errors.New("read timeout")
 	}
