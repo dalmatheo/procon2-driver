@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        id: download
+        with:
+          name: procon2-driver
+
+      - name: Create release body
+        id: create_body
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+
+
+            const lines = fs.readFileSync('./CHANGELOG.md', 'utf8').split("\n")
+            let changelog = ""
+            for (let line of lines) {
+                if (line == "___") break
+                changelog+=line + "\n"
+            }
+            return changelog
+          result-encoding: string
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.create_body.outputs.result }}
+          files: ${{ steps.download.outputs.download-path }}/procon2-driver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
