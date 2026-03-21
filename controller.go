@@ -17,12 +17,13 @@ const (
 
 // Controller represents a connected Nintendo controller
 type Controller struct {
-	device   *gousb.Device
-	iface    *gousb.Interface
-	epOut    *gousb.OutEndpoint
-	epIn     *gousb.InEndpoint
-	hidPath  string
-	packetID byte
+	device    *gousb.Device
+	iface     *gousb.Interface
+	epOut     *gousb.OutEndpoint
+	epIn      *gousb.InEndpoint
+	hidPath   string
+	packetID  byte
+	outBuffer [64]byte
 }
 
 // NewController accepts an already open USB device and initializes the interface
@@ -85,27 +86,30 @@ func (c *Controller) SetPlayerLEDs(playerNum int) error {
 
 // SendSubcommand sends a standard Pro Controller output report (0x01)
 func (c *Controller) SendSubcommand(subcmd byte, data []byte) error {
-	packet := make([]byte, 64)
+	for i := range c.outBuffer {
+		c.outBuffer[i] = 0
+	}
+
 	c.packetID = (c.packetID + 1) & 0x0F
 
-	packet[0] = 0x01 // Output Report ID
-	packet[1] = c.packetID
+	c.outBuffer[0] = 0x01 // Output Report ID
+	c.outBuffer[1] = c.packetID
 
 	// Rumble data (Low rumble neutral)
-	packet[2] = 0x00
-	packet[3] = 0x01
-	packet[4] = 0x40
-	packet[5] = 0x40
-	packet[6] = 0x00
-	packet[7] = 0x01
-	packet[8] = 0x40
-	packet[9] = 0x40
+	c.outBuffer[2] = 0x00
+	c.outBuffer[3] = 0x01
+	c.outBuffer[4] = 0x40
+	c.outBuffer[5] = 0x40
+	c.outBuffer[6] = 0x00
+	c.outBuffer[7] = 0x01
+	c.outBuffer[8] = 0x40
+	c.outBuffer[9] = 0x40
 
-	packet[10] = subcmd
-	copy(packet[11:], data)
+	c.outBuffer[10] = subcmd
+	copy(c.outBuffer[11:], data)
 
 	if c.epOut != nil {
-		_, err := c.epOut.Write(packet)
+		_, err := c.epOut.Write(c.outBuffer[:])
 		return err
 	}
 	return fmt.Errorf("output endpoint not connected")
