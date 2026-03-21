@@ -50,11 +50,15 @@ func (h *HapticPlayer) Play(pattern HapticPattern, frameInterval time.Duration, 
 
 	go func() {
 		counter := byte(0)
+		report := make([]byte, 64)
 
 		for i, frame := range pattern {
 			<-ticker.C
 
-			report := make([]byte, 64)
+			for j := range report {
+				report[j] = 0
+			}
+
 			report[0] = 0x02
 			report[1] = 0x50 | (counter & 0x0F)
 			report[17] = report[1]
