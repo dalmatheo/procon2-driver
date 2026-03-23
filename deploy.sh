@@ -9,7 +9,7 @@ PROJECT_ROOT=$(pwd)
 
 # --- 1. Compile the Project ---
 echo "⚙️  1. Compiling Go project..."
-go build -o "${EXECUTABLE_NAME}"
+go build -o "${EXECUTABLE_NAME}" ./src
 if [ $? -ne 0 ]; then
     echo "❌ Compilation failed. Aborting."
     exit 1
