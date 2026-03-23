@@ -23,6 +23,12 @@ jobs:
         with:
           name: procon2-driver
 
+      - name: Rename binary with tag
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          mv procon2-driver "procon2-driver-$TAG_NAME"
+          echo "NEW_FILENAME=procon2-driver-$TAG_NAME" >> $GITHUB_ENV
+
       - name: Create release body
         id: create_body
         uses: actions/github-script@v8
@@ -44,7 +50,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.create_body.outputs.result }}
-          files: ${{ steps.download.outputs.download-path }}/procon2-driver
+          files: ${{ env.NEW_FILENAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
