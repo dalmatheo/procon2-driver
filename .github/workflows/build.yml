@@ -37,7 +37,7 @@ jobs:
       - name: Building the driver
         run: |
           export CGO_ENABLED=1
-          go build -v -buildmode=pie -ldflags="-linkmode=external -extldflags='-Wl,-z,relro,-z,now'" -o procon2-driver
+          go build -v -buildmode=pie -ldflags="-linkmode=external -extldflags='-Wl,-z,relro,-z,now'" -o procon2-driver ./src
 
       - name: Upload the build driver
         uses: actions/upload-artifact@v6
