@@ -18,7 +18,7 @@
 
 **Full Changelog**: https://github.com/dalmatheo/procon2-driver/compare/v0.0.1...v0.0.2
 
----
+___
 
 # [Release 0.0.1](https://github.com/dalmatheo/procon2-driver/releases/tag/v0.0.1)
 
