@@ -64,6 +64,8 @@ type HIDReader struct {
 	stateChan   chan ControllerState
 	errChan     chan error
 	stopChan    chan struct{}
+	debugData   []byte
+	debugStats  []ByteStats
 }
 
 // NewHIDReader opens a HID device for reading
@@ -79,6 +81,8 @@ func NewHIDReader(hidPath string, cal JoystickCalibration) (*HIDReader, error) {
 		stateChan:   make(chan ControllerState, 1),
 		errChan:     make(chan error, 1),
 		stopChan:    make(chan struct{}),
+		debugData:   make([]byte, 200*64),
+		debugStats:  make([]ByteStats, 64),
 	}
 
 	// Send initialization commands
@@ -151,10 +155,17 @@ func (r *HIDReader) ReadStateTimeout(timeout time.Duration) (ControllerState, er
 
 // DebugReport captures and analyzes HID reports
 func (r *HIDReader) DebugReport(numReports int) (*HIDDebugInfo, error) {
-	debug := &HIDDebugInfo{
-		Reports: make([][]byte, 0, numReports),
-		Stats:   make([]ByteStats, 64),
+	requiredSize := numReports * 64
+	if len(r.debugData) < requiredSize {
+		r.debugData = make([]byte, requiredSize)
 	}
+
+	// Reset stats for a fresh run
+	for i := range r.debugStats {
+		r.debugStats[i] = ByteStats{}
+	}
+
+	reports := make([][]byte, numReports)
 
 	for i := 0; i < numReports; i++ {
 		n, err := r.file.Read(r.buffer[:])
@@ -162,33 +173,36 @@ func (r *HIDReader) DebugReport(numReports int) (*HIDDebugInfo, error) {
 			return nil, fmt.Errorf("read error at report %d: %w", i, err)
 		}
 
-		report := make([]byte, n)
+		// Use a slice of the internal debugData block
+		start := i * 64
+		report := r.debugData[start : start+n]
 		copy(report, r.buffer[:n])
-		debug.Reports = append(debug.Reports, report)
+		reports[i] = report
 
-		// Update statistics
+		// Update stats using the internal debugStats slice
 		for j := 0; j < n && j < 64; j++ {
-			stats := &debug.Stats[j]
-			if !stats.Seen {
-				stats.Min = report[j]
-				stats.Max = report[j]
-				stats.Seen = true
+			s := &r.debugStats[j]
+			val := report[j]
+			if !s.Seen {
+				s.Min, s.Max, s.Seen = val, val, true
 			} else {
-				if report[j] < stats.Min {
-					stats.Min = report[j]
+				if val < s.Min {
+					s.Min = val
 				}
-				if report[j] > stats.Max {
-					stats.Max = report[j]
+				if val > s.Max {
+					s.Max = val
 				}
 			}
-
-			if i > 0 && report[j] != debug.Reports[0][j] {
-				stats.Changes++
+			if i > 0 && val != reports[0][j] {
+				s.Changes++
 			}
 		}
 	}
 
-	return debug, nil
+	return &HIDDebugInfo{
+		Reports: reports,
+		Stats:   r.debugStats,
+	}, nil
 }
 
 // HIDDebugInfo contains debug statistics
