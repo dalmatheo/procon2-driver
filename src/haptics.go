@@ -20,7 +20,8 @@ var DefaultHapticPattern = HapticPattern{
 
 // HapticPlayer handles haptic feedback
 type HapticPlayer struct {
-	file *os.File
+	file   *os.File
+	report [64]byte
 }
 
 // NewHapticPlayer opens a HID device for haptic output
@@ -30,7 +31,7 @@ func NewHapticPlayer(hidPath string) (*HapticPlayer, error) {
 		return nil, fmt.Errorf("open hidraw: %w (try running as root or add udev rule)", err)
 	}
 
-	return &HapticPlayer{file: f}, nil
+	return &HapticPlayer{file: f, report: [64]byte{}}, nil
 }
 
 // Close closes the haptic device
@@ -50,32 +51,29 @@ func (h *HapticPlayer) Play(pattern HapticPattern, frameInterval time.Duration, 
 
 	go func() {
 		counter := byte(0)
-		report := make([]byte, 64)
 
 		for i, frame := range pattern {
 			<-ticker.C
 
-			for j := range report {
-				report[j] = 0
+			for j := range h.report {
+				h.report[j] = 0
 			}
 
-			report[0] = 0x02
-			report[1] = 0x50 | (counter & 0x0F)
-			report[17] = report[1]
+			h.report[0] = 0x02
+			h.report[1] = 0x50 | (counter & 0x0F)
+			h.report[17] = h.report[1]
 
-			// Copy frame data
-			for j := 0; j < len(frame) && j < 5; j++ {
-				report[2+j] = frame[j]
-				report[18+j] = frame[j]
-			}
+			// Copy frame data into the pre-allocated slots
+			copy(h.report[2:7], frame)
+			copy(h.report[18:23], frame)
 
-			n, err := h.file.Write(report)
+			n, err := h.file.Write(h.report[:])
 			if err != nil {
 				done <- fmt.Errorf("write error at frame %d: %w", i, err)
 				return
 			}
-			if n != len(report) {
-				done <- fmt.Errorf("short write at frame %d: %d/%d bytes", i, n, len(report))
+			if n != len(h.report) {
+				done <- fmt.Errorf("short write at frame %d: %d/%d bytes", i, n, len(h.report))
 				return
 			}
 
