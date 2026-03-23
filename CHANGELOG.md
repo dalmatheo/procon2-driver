@@ -1,3 +1,25 @@
+# [Release 0.0.2](https://github.com/dalmatheo/procon2-driver/releases/tag/v0.0.2)
+
+## Additions
+
+/
+
+## Deletions
+
+/
+
+## Fixes
+
+- Struct-Level Buffer Hoisting: Refactored the HapticPlayer and HIDReader structs to include pre-allocated fixed-size buffers. This moves memory allocation from the "hot path" (execution time) to initialization time. -> [@dalmatheo](https://github.com/dalmatheo)
+- Zero-Allocation Haptics: The Play function now reuses a single [64]byte internal buffer for all vibration frames instead of allocating new slices on every ticker interval. -> [@dalmatheo](https://github.com/dalmatheo)
+- Fast Memory Operations: Replaced manual copy loops with the built-in copy() function for faster, CPU-optimized memory transfers between buffers. -> [@dalmatheo](https://github.com/dalmatheo)
+
+## Links
+
+**Full Changelog**: https://github.com/dalmatheo/procon2-driver/compare/v0.0.1...v0.0.2
+
+---
+
 # [Release 0.0.1](https://github.com/dalmatheo/procon2-driver/releases/tag/v0.0.1)
 
 ## Additions
